@@ -5,7 +5,6 @@ An object model based losely on AppEngine's objects (or what i think i remember 
 
 Dependencies
 ------------
-* bson
 * twisted
 * txmongo
 
