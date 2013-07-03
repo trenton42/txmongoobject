@@ -17,6 +17,7 @@ setup(name='txmongoobject',
       packages=find_packages(),
       install_requires=[
           'twisted',
-          'txmongo'
+          'txmongo',
+          'bson'
       ],
       zip_safe=False)
