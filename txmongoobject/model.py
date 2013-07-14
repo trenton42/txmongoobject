@@ -506,17 +506,20 @@ class MongoSet(object):
                     if val is None:
                         continue
                     ids.add(val)
-                tmp = yield v._refCls.find({'_id': {'$in': list(ids)}})
-                _tmp = {}
-                for i in tmp:
-                    _tmp[i._id] = i
-                del tmp
-                for i in docs:
-                    key = i.get(k, None)
-                    if key in _tmp:
-                        i[k] = _tmp[key]
-                    else:
-                        i[k] = None
+                if not len(ids):
+                    continue
+                for j in chunks(list(ids), 100):
+                    tmp = yield v._refCls.find({'_id': {'$in': j}})
+                    _tmp = {}
+                    for i in tmp:
+                        _tmp[i._id] = i
+                    del tmp
+                    for i in docs:
+                        key = i.get(k, None)
+                        if key in _tmp:
+                            i[k] = _tmp[key]
+                        else:
+                            i[k] = None
 
         self._result = docs
         defer.returnValue(self)
@@ -534,3 +537,11 @@ class MongoSet(object):
         out.setValues(obj)
         out.loaded = True
         return out
+
+
+def chunks(l, n):
+    """ Yield successive n-sized chunks from l.
+    From StackOverflow: http://stackoverflow.com/a/312464/999844
+    """
+    for i in xrange(0, len(l), n):
+        yield l[i:i+n]
