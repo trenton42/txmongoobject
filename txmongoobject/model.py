@@ -336,7 +336,10 @@ class MongoSubObj(object):
             val = getattr(self, k)
             if val is None or isinstance(val, v._refCls):
                 continue
-            tmp = yield v._refCls().load(val)
+            try:
+                tmp = yield v._refCls().load(val)
+            except KeyError:
+                tmp = None
             setattr(self, k, tmp)
 
     @property
@@ -473,7 +476,8 @@ class MongoSet(object):
 
     def __iter__(self):
         for i in self._result:
-            yield self._applyItem(i)
+            # yield self._applyItem(i)
+            yield i
 
     def __len__(self):
         return len(self._result)
@@ -494,43 +498,55 @@ class MongoSet(object):
             ftr = None
         docs = yield collection.find(spec=self._search, limit=self._limit, skip=self._skip, filter=ftr)
 
-        # load refs (if there are any)
-        if self._loadRefs:
-            schema = self._class().schema
-            for k, v in schema.iteritems():
-                if not isinstance(v, referenceProperty):
-                    continue
-                ids = set()
-                for i in docs:
-                    val = i.get(k, None)
-                    if val is None:
-                        continue
-                    ids.add(val)
-                if not len(ids):
-                    continue
-                for j in chunks(list(ids), 100):
-                    tmp = yield v._refCls.find({'_id': {'$in': j}})
-                    _tmp = {}
-                    for i in tmp:
-                        _tmp[i._id] = i
-                    del tmp
-                    for i in docs:
-                        key = i.get(k, None)
-                        if key in _tmp:
-                            i[k] = _tmp[key]
-                        else:
-                            i[k] = None
-
-        self._result = docs
+        out = []
+        for i in docs:
+            o = self._applyItem(i)
+            if self._loadRefs:
+                yield o.loadRefs()
+            out.append(o)
+        self._result = out
         defer.returnValue(self)
+
+        # load refs (if there are any)
+        # if self._loadRefs:
+        #     for i in docs:
+        #         yield i.loadRefs()
+            # schema = self._class().schema
+            # for k, v in schema.iteritems():
+            #     if not isinstance(v, referenceProperty):
+            #         continue
+            #     ids = set()
+            #     for i in docs:
+            #         val = i.get(k, None)
+            #         if val is None:
+            #             continue
+            #         ids.add(val)
+            #     if not len(ids):
+            #         continue
+            #     for j in chunks(list(ids), 100):
+            #         tmp = yield v._refCls.find({'_id': {'$in': j}})
+            #         _tmp = {}
+            #         for i in tmp:
+            #             _tmp[i._id] = i
+            #         del tmp
+            #         for i in docs:
+            #             key = i.get(k, None)
+            #             if key in _tmp:
+            #                 i[k] = _tmp[key]
+            #             else:
+            #                 i[k] = None
+
+        # self._result = docs
+        # defer.returnValue(self)
 
     def __getitem__(self, index):
         if index.__class__ is not int:
             raise TypeError
         # if index < 0 or index >= len(self._result):
         #     raise IndexError
-        out = self._applyItem(self._result[index])
-        return out
+        # out = self._applyItem(self._result[index])
+        # return out
+        return self._result[index]
 
     def _applyItem(self, obj):
         out = self._class()
