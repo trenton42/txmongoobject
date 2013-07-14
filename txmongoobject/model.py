@@ -500,13 +500,13 @@ class MongoSet(object):
             for k, v in schema.iteritems():
                 if not isinstance(v, referenceProperty):
                     continue
-                ids = []
+                ids = set()
                 for i in docs:
                     val = i.get(k, None)
                     if val is None:
                         continue
-                    ids.append(val)
-                tmp = yield v._refCls.find({'_id': {'$in': ids}})
+                    ids.add(val)
+                tmp = yield v._refCls.find({'_id': {'$in': list(ids)}})
                 _tmp = {}
                 for i in tmp:
                     _tmp[i._id] = i
