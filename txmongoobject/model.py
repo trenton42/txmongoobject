@@ -35,6 +35,8 @@ class mongoProperty(object):
         return value
 
     def __set__(self, instance, value):
+        if instance.loaded and instance._prop_data[self._name] != self.set(value):
+            instance._prop_dirty.add(self._name)
         instance._prop_data[self._name] = self.set(value)
         # self.values[id(instance)] = self.set(value)
 
@@ -266,6 +268,7 @@ class coordinateProperty(dictProperty):
 class MongoSubObj(object):
 
     _prop_data = {}
+    _prop_dirty = set()
 
     def getValues(self):
         ''' Serialize all of the values into a mongoable dict '''
@@ -326,6 +329,7 @@ class MongoSubObj(object):
                 tmp = []
                 for i in val:
                     if i is None or isinstance(i, v._defaultWrapper._refCls):
+                        tmp.append(i)
                         continue
                     row = yield v._defaultWrapper._refCls().load(i)
                     tmp.append(row)
@@ -373,6 +377,7 @@ class objectProperty(mongoProperty):
 
 
 class MongoObj(MongoSubObj):
+    ''' Results class for running a query. Each result is a as appropriate mongo object '''
 
     loaded = False
     dbname = 'brndydb'
@@ -421,8 +426,6 @@ class MongoObj(MongoSubObj):
 
     @defer.inlineCallbacks
     def save(self):
-        # mongo = yield txmongo.MongoConnectionPool('127.0.0.1', 27017)
-
         db = getattr(self.mongo, self.dbname)
         collection = getattr(db, self.__class__.__name__)
 
@@ -430,14 +433,29 @@ class MongoObj(MongoSubObj):
         if '_id' in data and data['_id'] is None:
             del data['_id']
 
-        if not '_id' in data:
+        if '_id' not in data:
             data = self.create(data)
             data['cdate'] = datetime.today()
             self.cdate = data['cdate']
+        else:
+            data_out = {}
+            for i in self._prop_dirty:
+                if i not in data or i == '_id':
+                    continue
+                data_out[i] = data[i]
+            if not data_out:
+                self._prop_dirty.clear()
+                defer.returnValue(None)
+
+            data = {'$set': data_out}
+            self._prop_dirty.clear()
+            out = yield collection.update({'_id': self._id}, data, safe=True)
+            defer.returnValue(out)
 
         result = yield collection.save(data, safe=True)
         if result.__class__ is ObjectId:
             self._id = result
+        
         defer.returnValue(result)
 
     @classmethod
