@@ -35,7 +35,7 @@ class mongoProperty(object):
         return value
 
     def __set__(self, instance, value):
-        if instance.loaded and instance._prop_data[self._name] != self.set(value):
+        if instance.loaded and (self._name not in instance._prop_data or instance._prop_data[self._name] != self.set(value)):
             instance._prop_dirty.add(self._name)
         instance._prop_data[self._name] = self.set(value)
         # self.values[id(instance)] = self.set(value)
