@@ -382,7 +382,7 @@ class MongoObj(MongoSubObj):
     loaded = False
     dbname = 'brndydb'
     __metaclass__ = metaMongoObj
-    mongo = txmongo.MongoConnectionPool('127.0.0.1', 27017)
+    mongo = None
 
     def __init__(self):
         self._id = None
@@ -390,11 +390,55 @@ class MongoObj(MongoSubObj):
         super(MongoObj, self).__init__()
 
     @classmethod
+    def connect(cls, host, port):
+        if cls.mongo is not None:
+            # Possibly already connected?
+            return
+        cls.mongo = txmongo.MongoConnectionPool(host, port)
+
+    @classmethod
+    def disconnect(cls):
+        if cls.mongo is None:
+            return
+
+        # Returns a deferred which (hopefully) fires when all connections are severed
+        return cls.mongo.disconnect()
+
+    def __eq__(self, other):
+        ''' Comparison between this and another object. Also returns true if
+        compared to an ObjectId that matches this objects _id '''
+        if other.__class__ is self.__class__ and self._id == other._id:
+            return True
+
+        return isinstance(other, ObjectId) and other == self._id
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @classmethod
     def getCollection(cls):
-        # mongo = txmongo.MongoConnectionPool('127.0.0.1', 27017)
         db = getattr(cls.mongo, cls.dbname)
         collection = getattr(db, cls.__name__)
         return collection
+
+    
+    @classmethod
+    @defer.inlineCallbacks
+    def findOne(cls, docid):
+        if docid is not None and not isinstance(docid, ObjectId):
+            # Raises exception if docid is not ObjectId-able
+            docid = ObjectId(docid)
+        if docid is None:
+            defer.returnValue(cls())
+        collection = cls.getCollection()
+        doc = yield collection.find_one({'_id': docid})
+        if not doc:
+            raise KeyError('{} with the id {} not found'.format(cls.__name__, docid))
+
+        new_object = cls()
+        new_object.setValues(doc)
+        new_object.loaded = True
+        defer.returnValue(new_object)
 
     @defer.inlineCallbacks
     def load(self, docid=None):
