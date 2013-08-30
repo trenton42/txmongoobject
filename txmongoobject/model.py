@@ -450,8 +450,7 @@ class MongoObj(MongoSubObj):
         if docid is None:
             defer.returnValue(self)
 
-        db = getattr(self.mongo, self.dbname)
-        collection = getattr(db, self.__class__.__name__)
+        collection = self.getCollection()
 
         docs = yield collection.find({'_id': docid}, limit=1)
         if not len(docs):
@@ -470,8 +469,7 @@ class MongoObj(MongoSubObj):
 
     @defer.inlineCallbacks
     def save(self):
-        db = getattr(self.mongo, self.dbname)
-        collection = getattr(db, self.__class__.__name__)
+        collection = self.getCollection()
 
         data = self.getValues()
         if '_id' in data and data['_id'] is None:
@@ -504,8 +502,7 @@ class MongoObj(MongoSubObj):
 
     @classmethod
     def aggregate(cls, spec, **kwargs):
-        db = getattr(cls.mongo, cls.dbname)
-        collection = getattr(db, cls.__name__)
+        collection = cls.getCollection()
 
         return collection.aggregate(spec, **kwargs)
 
@@ -550,7 +547,6 @@ class MongoSet(object):
 
     @defer.inlineCallbacks
     def _runQuery(self):
-        # mongo = yield txmongo.MongoConnectionPool('127.0.0.1', 27017)
         mongo = MongoObj.mongo
         db = getattr(mongo, self._class.dbname)
         collection = getattr(db, self._class.__name__)
