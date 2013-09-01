@@ -387,6 +387,7 @@ class MongoObj(MongoSubObj):
     def __init__(self):
         self._id = None
         self._prop_data = {}
+        self._prop_dirty = set()
         super(MongoObj, self).__init__()
 
     @classmethod
@@ -497,6 +498,7 @@ class MongoObj(MongoSubObj):
         result = yield collection.save(data, safe=True)
         if result.__class__ is ObjectId:
             self._id = result
+            self.loaded = True
         
         defer.returnValue(result)
 

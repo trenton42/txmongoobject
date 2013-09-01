@@ -105,6 +105,12 @@ class TestCollection(unittest.TestCase):
 
 		self.assertIsInstance(col._id, ObjectId, 'Once an object is saved, _id must be an ObjectId')
 
+		col.testFloat = 4.0
+
+		self.assertIn('testFloat', col._prop_dirty)
+
+		yield col.save()
+
 		# Reload object from database
 
 		newobj = CollectionObject()
@@ -126,6 +132,12 @@ class TestCollection(unittest.TestCase):
 		self.assertNotIn('testInt', newobj._prop_dirty)
 		self.assertNotIn('testRef', newobj._prop_dirty)
 		self.assertNotIn('testRefList', newobj._prop_dirty)
+
+		yield newobj.save()
+
+		newobj.testString = 'well, that is some new string'
+
+		self.assertIn('testString', newobj._prop_dirty)
 
 		yield newobj.save()
 
