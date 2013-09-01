@@ -35,7 +35,7 @@ class mongoProperty(object):
         return value
 
     def __set__(self, instance, value):
-        if instance.loaded and instance._prop_data[self._name] != self.set(value):
+        if instance.loaded and (self._name not in instance._prop_data or instance._prop_data[self._name] != self.set(value)):
             instance._prop_dirty.add(self._name)
         instance._prop_data[self._name] = self.set(value)
         # self.values[id(instance)] = self.set(value)
@@ -382,19 +382,64 @@ class MongoObj(MongoSubObj):
     loaded = False
     dbname = 'brndydb'
     __metaclass__ = metaMongoObj
-    mongo = txmongo.MongoConnectionPool('127.0.0.1', 27017)
+    mongo = None
 
     def __init__(self):
         self._id = None
         self._prop_data = {}
+        self._prop_dirty = set()
         super(MongoObj, self).__init__()
 
     @classmethod
+    def connect(cls, host, port):
+        if cls.mongo is not None:
+            # Possibly already connected?
+            return
+        cls.mongo = txmongo.MongoConnectionPool(host, port)
+
+    @classmethod
+    def disconnect(cls):
+        if cls.mongo is None:
+            return
+
+        # Returns a deferred which (hopefully) fires when all connections are severed
+        return cls.mongo.disconnect()
+
+    def __eq__(self, other):
+        ''' Comparison between this and another object. Also returns true if
+        compared to an ObjectId that matches this objects _id '''
+        if other.__class__ is self.__class__ and self._id == other._id:
+            return True
+
+        return isinstance(other, ObjectId) and other == self._id
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @classmethod
     def getCollection(cls):
-        # mongo = txmongo.MongoConnectionPool('127.0.0.1', 27017)
         db = getattr(cls.mongo, cls.dbname)
         collection = getattr(db, cls.__name__)
         return collection
+
+    
+    @classmethod
+    @defer.inlineCallbacks
+    def findOne(cls, docid):
+        if docid is not None and not isinstance(docid, ObjectId):
+            # Raises exception if docid is not ObjectId-able
+            docid = ObjectId(docid)
+        if docid is None:
+            defer.returnValue(cls())
+        collection = cls.getCollection()
+        doc = yield collection.find_one({'_id': docid})
+        if not doc:
+            raise KeyError('{} with the id {} not found'.format(cls.__name__, docid))
+
+        new_object = cls()
+        new_object.setValues(doc)
+        new_object.loaded = True
+        defer.returnValue(new_object)
 
     @defer.inlineCallbacks
     def load(self, docid=None):
@@ -406,8 +451,7 @@ class MongoObj(MongoSubObj):
         if docid is None:
             defer.returnValue(self)
 
-        db = getattr(self.mongo, self.dbname)
-        collection = getattr(db, self.__class__.__name__)
+        collection = self.getCollection()
 
         docs = yield collection.find({'_id': docid}, limit=1)
         if not len(docs):
@@ -426,8 +470,7 @@ class MongoObj(MongoSubObj):
 
     @defer.inlineCallbacks
     def save(self):
-        db = getattr(self.mongo, self.dbname)
-        collection = getattr(db, self.__class__.__name__)
+        collection = self.getCollection()
 
         data = self.getValues()
         if '_id' in data and data['_id'] is None:
@@ -455,13 +498,13 @@ class MongoObj(MongoSubObj):
         result = yield collection.save(data, safe=True)
         if result.__class__ is ObjectId:
             self._id = result
+            self.loaded = True
         
         defer.returnValue(result)
 
     @classmethod
     def aggregate(cls, spec, **kwargs):
-        db = getattr(cls.mongo, cls.dbname)
-        collection = getattr(db, cls.__name__)
+        collection = cls.getCollection()
 
         return collection.aggregate(spec, **kwargs)
 
@@ -506,7 +549,6 @@ class MongoSet(object):
 
     @defer.inlineCallbacks
     def _runQuery(self):
-        # mongo = yield txmongo.MongoConnectionPool('127.0.0.1', 27017)
         mongo = MongoObj.mongo
         db = getattr(mongo, self._class.dbname)
         collection = getattr(db, self._class.__name__)
