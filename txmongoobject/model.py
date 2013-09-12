@@ -502,6 +502,20 @@ class MongoObj(MongoSubObj):
         
         defer.returnValue(result)
 
+    @defer.inlineCallbacks
+    def remove(self):
+        ''' Delete a single object '''
+        if not self.loaded:
+            defer.returnValue(False)
+
+        collection = self.getCollection()
+        res = yield collection.remove({'_id': self._id})
+        self._prop_data.clear()
+        self._prop_dirty.clear()
+        self._id = None
+        self.loaded = False
+        defer.returnValue(res)
+
     @classmethod
     def aggregate(cls, spec, **kwargs):
         collection = cls.getCollection()
