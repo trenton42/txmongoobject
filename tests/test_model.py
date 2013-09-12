@@ -66,6 +66,8 @@ class TestCollection(unittest.TestCase):
 		col = CollectionObject()
 		yield col.save()
 
+		self.assertTrue(col.loaded)
+
 		frag = Fragment()
 		yield frag.save()
 
@@ -90,6 +92,24 @@ class TestCollection(unittest.TestCase):
 		self.assertNotEqual(col, other)
 		self.assertEqual(col, dup)
 		self.assertEqual(col, dup._id)
+
+	@defer.inlineCallbacks
+	def test_remove(self):
+		obj = CollectionObject()
+		obj.testString = 'this is a test'
+		yield obj.save()
+
+		self.assertTrue(obj.loaded)
+
+		_id = obj._id
+		yield obj.remove()
+		
+		self.assertFalse(obj.loaded, 'Object should not be loaded after being deleted')
+
+		tmp = yield CollectionObject.find({'_id': _id})
+
+		self.assertEqual(len(tmp), 0)
+
 
 	@defer.inlineCallbacks
 	def test_dirty(self):
