@@ -3,6 +3,8 @@ from bson.objectid import ObjectId, InvalidId
 from twisted.internet import defer
 from datetime import datetime
 
+class notLoadedError(Exception):
+    pass
 
 class metaMongoObj(type):
     def __new__(meta, classname, bases, classDict):
