@@ -6,6 +6,7 @@ from datetime import datetime
 class notLoadedError(Exception):
     pass
 
+
 class metaMongoObj(type):
     def __new__(meta, classname, bases, classDict):
         classDict['_id'] = mongoidProperty()
@@ -14,7 +15,7 @@ class metaMongoObj(type):
         for k, v in classDict.iteritems():
             if not issubclass(v.__class__, mongoProperty):
                 continue
-            v._name = k
+            v._name = v._key if v._key else k
         return type.__new__(meta, classname, bases, classDict)
 
 
@@ -22,11 +23,14 @@ class mongoProperty(object):
 
     value = None
     _name = None
+    _key = None
 
-    def __init__(self, allowNone=True, default=None):
+    def __init__(self, allowNone=True, default=None, key=None):
         self.allowNone = allowNone
         self.default = default
         self.values = {}
+        if key:
+            self._key = key
 
     def set(self, value):
         if value is None and self.default is not None:
@@ -56,15 +60,13 @@ class boolProperty(mongoProperty):
 
 class stringProperty(mongoProperty):
 
-    def __init__(self, maxLength=None, allowNone=True, default=None):
-        self.default = default
+    def __init__(self, maxLength=None, **kwargs):
         if maxLength is not None:
             if maxLength.__class__ is not int or maxLength <= 0:
                 maxLength = None
 
         self.maxLength = maxLength
-        self.allowNone = allowNone
-        super(stringProperty, self).__init__(allowNone=allowNone, default=default)
+        super(stringProperty, self).__init__(**kwargs)
 
     def set(self, value):
         if value is None and self.default is not None:
@@ -94,11 +96,9 @@ class dateProperty(mongoProperty):
 
 class intProperty(mongoProperty):
 
-    def __init__(self, unsigned=False, allowNone=True, default=None):
+    def __init__(self, unsigned=False, **kwargs):
         self.unsigned = unsigned
-        self.allowNone = allowNone
-        self.default = default
-        super(intProperty, self).__init__(allowNone=allowNone, default=default)
+        super(intProperty, self).__init__(**kwargs)
 
     def set(self, value):
         if value.__class__ is unicode:
@@ -132,11 +132,9 @@ class intProperty(mongoProperty):
 
 class floatProperty(mongoProperty):
 
-    def __init__(self, unsigned=False, allowNone=True, default=None):
-        self.default = default
+    def __init__(self, unsigned=False, **kwargs):
         self.unsigned = unsigned
-        self.allowNone = allowNone
-        super(floatProperty, self).__init__(allowNone=allowNone, default=default)
+        super(floatProperty, self).__init__(**kwargs)
 
     def set(self, value):
         if value.__class__ is unicode:
@@ -185,13 +183,14 @@ class mongoidProperty(mongoProperty):
 
 class referenceProperty(mongoProperty):
     """Creates a reference to another mongo object by storing the _id"""
-    def __init__(self, cls, key=None, allowNone=True, multi=False):
-        super(referenceProperty, self).__init__(allowNone=allowNone)
+    
+    def __init__(self, cls, multi=False, **kwargs):
+        super(referenceProperty, self).__init__(**kwargs)
 
         if not issubclass(cls, MongoObj):
             raise ValueError('cls must be subclass of MongoObj')
         self._refCls = cls
-        self._key = key
+
 
     def set(self, value):
 
@@ -260,11 +259,7 @@ class listProperty(mongoProperty):
 
 
 class coordinateProperty(dictProperty):
-
-    def __init__(self, allowNone=False, default={'x': 0, 'y': 0}):
-        self.allowNone = allowNone
-        self.default = default
-        super(coordinateProperty, self).__init__(allowNone=allowNone, default=default)
+    pass
 
 
 class MongoSubObj(object):
@@ -277,30 +272,35 @@ class MongoSubObj(object):
         out = {}
 
         for k, v in self.schema.iteritems():
+            key = v._key if v._key else k
             if isinstance(v, referenceProperty):
                 tmp = getattr(self, k)
                 if tmp is None or isinstance(tmp, ObjectId):
-                    out[k] = tmp
+                    out[key] = tmp
                 else:
-                    out[k] = tmp._id
+                    out[key] = tmp._id
             elif isinstance(v, listProperty):
                 tmp = getattr(self, k)
-                out[k] = v._getIds(tmp)
+                out[key] = v._getIds(tmp)
             elif issubclass(v.__class__, objectProperty):
-                out[k] = getattr(self, k).getValues()
+                out[key] = getattr(self, k).getValues()
             else:
-                out[k] = getattr(self, k)
+                out[key] = getattr(self, k)
 
         return out
 
     def setValues(self, data):
         ''' Set the values of the object recursively '''
-
         schema = self.schema
+        keymap = {}
+        for k, v in schema.items():
+            key = v._key if v._key else k
+            keymap[key] = k
         for k, v in data.iteritems():
-            if k not in schema:
+            if k not in keymap:
+                print k
                 continue
-            setattr(self, k, v)
+            setattr(self, keymap[k], v)
 
     def __iter__(self):
         def iterKeys():
@@ -367,6 +367,7 @@ class MongoSubObj(object):
 
 
 class objectProperty(mongoProperty):
+    ''' An embedded object property '''
 
     def __init__(self, refClass=None, allowNone=False):
         if not issubclass(refClass, MongoSubObj):
