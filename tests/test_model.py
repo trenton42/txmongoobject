@@ -13,6 +13,7 @@ class Fragment(model.MongoObj):
 
 class CollectionObject(model.MongoObj):
 	testString = model.stringProperty()
+	testMaxLengthString = model.stringProperty(maxLength=5)
 	testInt = model.intProperty()
 	testFloat = model.floatProperty()
 	testBool = model.boolProperty()
@@ -20,6 +21,13 @@ class CollectionObject(model.MongoObj):
 	testRef = model.referenceProperty(Fragment)
 	testRefList = model.listProperty(wrapper=model.referenceProperty(Fragment))
 
+class KeyTestCollection(model.MongoObj):
+	_testString = model.stringProperty(key='testString')
+	_testInt = model.intProperty(key='testInt')
+	_testFloat = model.floatProperty(key='testFloat')
+	_testBool = model.boolProperty(key='testBool')
+	_testDate = model.dateProperty(key='testDate')
+	_testRef = model.referenceProperty(Fragment, key='testRef')
 
 class TestCollection(unittest.TestCase):
 
@@ -28,7 +36,6 @@ class TestCollection(unittest.TestCase):
 	@defer.inlineCallbacks
 	def setUp(self):
 		model.MongoObj.mongo = yield model.txmongo.MongoConnection('127.0.0.1', 27017)
-
 
 	@defer.inlineCallbacks
 	def tearDown(self):
@@ -77,7 +84,6 @@ class TestCollection(unittest.TestCase):
 
 		self.assertEqual(col, newcol)
 
-
 	@defer.inlineCallbacks
 	def test_comparison(self):
 		col = CollectionObject()
@@ -109,7 +115,6 @@ class TestCollection(unittest.TestCase):
 		tmp = yield CollectionObject.find({'_id': _id})
 
 		self.assertEqual(len(tmp), 0)
-
 
 	@defer.inlineCallbacks
 	def test_dirty(self):
@@ -163,4 +168,50 @@ class TestCollection(unittest.TestCase):
 
 		self.assertEqual(len(newobj._prop_dirty), 0)
 
-		
+
+	def test_string(self):
+		obj = CollectionObject()
+		obj.testMaxLengthString = '*' * 5
+		self.assertEqual(len(obj.testMaxLengthString), 5)
+
+	@defer.inlineCallbacks
+	def test_keys(self):
+		''' Ensure that keys can be changed '''
+		obj = KeyTestCollection()
+		obj._testString = 'sample'
+		obj._testInt = 5
+		obj._testFloat = 5.5
+		obj._testBool = False
+		# NB: Mongo ISODate()'s precision is 100ms
+		sampleDate = datetime.today().replace(microsecond=0)
+		obj._testDate = sampleDate
+		frag = Fragment()
+		yield frag.save()
+		obj._testRef = frag
+
+		yield obj.save()
+
+		self.assertIn('testRef', obj._prop_data)
+		self.assertIn('testString', obj._prop_data)
+		self.assertIn('testDate', obj._prop_data)
+		self.assertIn('testBool', obj._prop_data)
+		self.assertIn('testFloat', obj._prop_data)
+		self.assertIn('testInt', obj._prop_data)
+
+		newobj = yield KeyTestCollection.findOne(obj._id)
+
+		self.assertIn('testRef', newobj._prop_data)
+		self.assertIn('testString', newobj._prop_data)
+		self.assertIn('testDate', newobj._prop_data)
+		self.assertIn('testBool', newobj._prop_data)
+		self.assertIn('testFloat', newobj._prop_data)
+		self.assertIn('testInt', newobj._prop_data)
+		self.assertEqual(newobj._testString, 'sample')
+		self.assertEqual(newobj._testInt, 5)
+		self.assertEqual(newobj._testFloat, 5.5)
+		self.assertIdentical(newobj._testBool, False)
+		self.assertEqual(newobj._testDate, sampleDate)
+
+		yield obj.remove()
+		yield frag.remove()
+		yield newobj.remove()
