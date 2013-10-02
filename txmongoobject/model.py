@@ -298,7 +298,6 @@ class MongoSubObj(object):
             keymap[key] = k
         for k, v in data.iteritems():
             if k not in keymap:
-                print k
                 continue
             setattr(self, keymap[k], v)
 
