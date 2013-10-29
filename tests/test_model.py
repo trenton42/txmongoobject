@@ -3,6 +3,7 @@ from twisted.trial import unittest
 from twisted.internet import defer
 from datetime import datetime
 from bson.objectid import ObjectId
+import pytz
 
 
 model.MongoObj.dbname = 'test_database'
@@ -215,3 +216,26 @@ class TestCollection(unittest.TestCase):
 		yield obj.remove()
 		yield frag.remove()
 		yield newobj.remove()
+
+	@defer.inlineCallbacks
+	def test_dates(self):
+		''' Ensure date processing / localization works '''
+		today = datetime.today().replace(microsecond=0)
+		obj = CollectionObject()
+		obj.testDate = today
+
+		yield obj.save()
+
+		newobj = yield CollectionObject.findOne(obj._id)
+
+		self.assertEqual(newobj.testDate, today)
+		self.assertIdentical(newobj.testDate.tzinfo, None)
+
+		newobj.display_timezone = pytz.timezone('US/Eastern')
+
+		self.assertNotEqual(newobj.testDate.tzinfo, None)
+
+		yield newobj.save()
+
+		obj = yield CollectionObject.findOne(obj._id)
+		self.assertEqual(obj.testDate, today)
