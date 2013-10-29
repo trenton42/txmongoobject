@@ -8,3 +8,7 @@
 /*.egg-info
 /*.egg
 _trial_temp
+.Python
+bin
+lib
+include

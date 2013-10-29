@@ -2,6 +2,8 @@ import txmongo
 from bson.objectid import ObjectId, InvalidId
 from twisted.internet import defer
 from datetime import datetime
+import pytz
+
 
 class notLoadedError(Exception):
     pass
@@ -44,7 +46,6 @@ class mongoProperty(object):
         if instance.loaded and (self._name not in instance._prop_data or instance._prop_data[self._name] != self.set(value)):
             instance._prop_dirty.add(self._name)
         instance._prop_data[self._name] = self.set(value)
-        # self.values[id(instance)] = self.set(value)
 
     def __get__(self, instance, owner):
         if self._name not in instance._prop_data:
@@ -87,9 +88,27 @@ class stringProperty(mongoProperty):
 
 
 class dateProperty(mongoProperty):
+
     def set(self, value):
-        if value.__class__ is not datetime:
+        if not isinstance(value, datetime):
             value = None
+        elif value.tzinfo and value.tzinfo != pytz.utc:
+            value = value.astimezone(pytz.utc)
+
+        return value
+
+    def __get__(self, instance, owner):
+        if self._name not in instance._prop_data:
+            return self.default
+
+        value = self.get(instance._prop_data[self._name])
+
+        if not isinstance(value, datetime):
+            return value
+        
+        if instance.display_timezone:
+            value = value.replace(tzinfo=pytz.utc)
+            return value.astimezone(instance.display_timezone)
 
         return value
 
@@ -385,6 +404,7 @@ class MongoObj(MongoSubObj):
     dbname = 'brndydb'
     __metaclass__ = metaMongoObj
     mongo = None
+    display_timezone = None
 
     def __init__(self):
         self._id = None
@@ -533,14 +553,16 @@ class MongoSet(object):
     _data = None
     _queryRun = False
     _result = []
+    _display_timezone = None
 
-    def __init__(self, search, cls, limit=0, skip=0, sort=None, loadRefs=False):
+    def __init__(self, search, cls, limit=0, skip=0, sort=None, loadRefs=False, display_timezone=None):
         self._search = search
         self._class = cls
         self._limit = limit
         self._skip = skip
         self._sort = sort
         self._loadRefs = loadRefs
+        self._display_timezone = display_timezone
 
     def limit(self, num):
         self._limit = num
@@ -626,6 +648,7 @@ class MongoSet(object):
 
     def _applyItem(self, obj):
         out = self._class()
+        out.display_timezone = self._display_timezone
         out.setValues(obj)
         out.loaded = True
         return out
