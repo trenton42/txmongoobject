@@ -277,8 +277,25 @@ class listProperty(mongoProperty):
         return out
 
 
-class coordinateProperty(dictProperty):
-    pass
+class geoPointProperty(mongoProperty):
+    ''' Point GeoJSON object, with GeoJSON metadata hidden '''
+    def set(self, value):
+        if isinstance(value, dict) and 'coordinates' in value and 'type' in value:
+            # Allow raw GeoJSON to get through
+            return value
+
+        if not isinstance(value, list):
+            value = [0, 0]
+        if len(value) != 2:
+            value = [0, 0]
+
+        return {'type': "Point", 'coordinates': value}
+
+    def get(self, value):
+        if not value or not isinstance(value, dict) or 'coordinates' not in value:
+            return [0, 0]
+
+        return value['coordinates']
 
 
 class MongoSubObj(object):
