@@ -291,11 +291,11 @@ class geoPointProperty(mongoProperty):
 
         return {'type': "Point", 'coordinates': value}
 
-    def get(self, value):
-        if not value or not isinstance(value, dict) or 'coordinates' not in value:
-            return [0, 0]
+    # def get(self, value):
+    #     if not value or not isinstance(value, dict) or 'coordinates' not in value:
+    #         return [0, 0]
 
-        return value['coordinates']
+    #     return value['coordinates']
 
 
 class MongoSubObj(object):
