@@ -254,3 +254,4 @@ class TestCollection(unittest.TestCase):
 		self.assertEqual(count, new_count - 1)
 		count = yield CountCollectionObject.count({'number': 6})
 		self.assertEqual(count, 0)
+		self.assertIsInstance(count, int)

@@ -509,7 +509,13 @@ class MongoObj(MongoSubObj):
     @classmethod
     def count(cls, search):
         collection = cls.getCollection()
-        return collection.count(search)
+        d = collection.count(search)
+
+        def _afterCount(res):
+            # count returns a float by default. Cast to int.
+            return int(res)
+        d.addCallback(_afterCount)
+        return d
 
     @defer.inlineCallbacks
     def save(self):
