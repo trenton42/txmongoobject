@@ -30,6 +30,9 @@ class KeyTestCollection(model.MongoObj):
 	_testDate = model.dateProperty(key='testDate')
 	_testRef = model.referenceProperty(Fragment, key='testRef')
 
+class CountCollectionObject(model.MongoObj):
+	number = model.intProperty()
+
 class TestCollection(unittest.TestCase):
 
 	timeout = 15
@@ -239,3 +242,15 @@ class TestCollection(unittest.TestCase):
 
 		obj = yield CollectionObject.findOne(obj._id)
 		self.assertEqual(obj.testDate, today)
+
+	@defer.inlineCallbacks
+	def test_count(self):
+		''' Ensure count class method works '''
+		count = yield CountCollectionObject.count({})
+		obj = CountCollectionObject()
+		obj.number = 7
+		yield obj.save()
+		new_count = yield CountCollectionObject.count({})
+		self.assertEqual(count, new_count - 1)
+		count = yield CountCollectionObject.count({'number': 6})
+		self.assertEqual(count, 0)

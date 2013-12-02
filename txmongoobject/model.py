@@ -461,7 +461,6 @@ class MongoObj(MongoSubObj):
         collection = getattr(db, cls.__name__)
         return collection
 
-    
     @classmethod
     @defer.inlineCallbacks
     def findOne(cls, docid):
@@ -506,6 +505,11 @@ class MongoObj(MongoSubObj):
     def find(cls, search, **kwargs):
         ''' Get a list of all objects in this collection that match _search_'''
         return MongoSet(search, cls, **kwargs)._runQuery()
+
+    @classmethod
+    def count(cls, search):
+        collection = cls.getCollection()
+        return collection.count(search)
 
     @defer.inlineCallbacks
     def save(self):
