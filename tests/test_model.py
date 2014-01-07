@@ -21,6 +21,12 @@ class CollectionObject(model.MongoObj):
 	testDate = model.dateProperty()
 	testRef = model.referenceProperty(Fragment)
 	testRefList = model.listProperty(wrapper=model.referenceProperty(Fragment))
+	testExtra = model.stringProperty()
+
+	def create(self, data):
+		data['testExtra'] = 'teststring'
+		return data
+
 
 class KeyTestCollection(model.MongoObj):
 	_testString = model.stringProperty(key='testString')
@@ -255,3 +261,12 @@ class TestCollection(unittest.TestCase):
 		count = yield CountCollectionObject.count({'number': 6})
 		self.assertEqual(count, 0)
 		self.assertIsInstance(count, int)
+
+	@defer.inlineCallbacks
+	def test_create(self):
+		''' Ensure that data set by the create method gets set '''
+		p = CollectionObject()
+		self.assertIdentical(p.testExtra, None)
+		yield p.save()
+		self.assertEqual(p.testExtra, 'teststring')
+		yield p.remove()

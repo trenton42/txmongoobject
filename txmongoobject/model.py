@@ -526,7 +526,11 @@ class MongoObj(MongoSubObj):
             del data['_id']
 
         if '_id' not in data:
+            olddata = data.copy()
             data = self.create(data)
+            newkeys = filter(lambda k: data[k] != olddata[k], data.keys())
+            for i in newkeys:
+                setattr(self, i, data[i])
             data['cdate'] = datetime.today()
             self.cdate = data['cdate']
         else:
@@ -548,7 +552,7 @@ class MongoObj(MongoSubObj):
         if result.__class__ is ObjectId:
             self._id = result
             self.loaded = True
-        
+
         defer.returnValue(result)
 
     @defer.inlineCallbacks
