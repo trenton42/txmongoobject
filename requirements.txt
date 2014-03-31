@@ -1,6 +1,4 @@
-Twisted==13.1.0
-pymongo==2.6.3
-pytz==2013.7
--e git+git@github.com:trenton42/txmongo.git@afdf84a58e5fb469249caf5808651a5de7f467e2#egg=txmongo-master
-wsgiref==0.1.2
-zope.interface==4.0.5
+Twisted>=13.1.0
+pymongo>=2.6.3
+pytz>=2013.7
+-e .
