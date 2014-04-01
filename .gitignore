@@ -12,3 +12,4 @@ _trial_temp
 bin
 lib
 include
+.download_cache
