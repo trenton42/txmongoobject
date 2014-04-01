@@ -1,5 +1,8 @@
 import txmongo
-from bson.objectid import ObjectId, InvalidId
+try:
+    from txmongo._pymongo.objectid import ObjectId, InvalidId
+except ImportError:
+    from bson.objectid import ObjectId, InvalidId
 from twisted.internet import defer
 from datetime import datetime
 import pytz

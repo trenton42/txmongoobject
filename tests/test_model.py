@@ -2,7 +2,10 @@ from txmongoobject import model
 from twisted.trial import unittest
 from twisted.internet import defer
 from datetime import datetime
-from bson.objectid import ObjectId
+try:
+    from txmongo._pymongo.objectid import ObjectId
+except ImportError:
+    from bson.objectid import ObjectId
 import pytz
 
 
