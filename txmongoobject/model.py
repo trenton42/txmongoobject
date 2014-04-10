@@ -110,7 +110,7 @@ class dateProperty(mongoProperty):
 
         if not isinstance(value, datetime):
             return value
-        
+
         if instance.display_timezone:
             value = value.replace(tzinfo=pytz.utc)
             return value.astimezone(instance.display_timezone)
@@ -207,14 +207,13 @@ class mongoidProperty(mongoProperty):
 
 class referenceProperty(mongoProperty):
     """Creates a reference to another mongo object by storing the _id"""
-    
+
     def __init__(self, cls, multi=False, **kwargs):
         super(referenceProperty, self).__init__(**kwargs)
 
         if not issubclass(cls, MongoObj):
             raise ValueError('cls must be subclass of MongoObj')
         self._refCls = cls
-
 
     def set(self, value):
 
@@ -227,7 +226,9 @@ class referenceProperty(mongoProperty):
         try:
             value = ObjectId(value)
         except InvalidId:
-            raise ValueError('%s must be subclass of %s' % (str(value), str(self._refCls.__name__)))
+            err = '%s must be subclass of %s' % (str(value),
+                                                 str(self._refCls.__name__))
+            raise ValueError(err)
 
         return value
 
@@ -268,7 +269,9 @@ class listProperty(mongoProperty):
         return value
 
     def _getIds(self, values):
-        ''' Get all ObjectIds of members (for serialization) if the base wrapper is referenceProperty '''
+        ''' Get all ObjectIds of members (for serialization) if the
+        base wrapper is referenceProperty
+        '''
         if not isinstance(self._defaultWrapper, referenceProperty) or values is None:
             return values
         out = []
@@ -420,7 +423,8 @@ class objectProperty(mongoProperty):
 
 
 class MongoObj(MongoSubObj):
-    ''' Results class for running a query. Each result is a as appropriate mongo object '''
+    ''' Results class for running a query. Each result is a as
+    appropriate mongo object '''
 
     loaded = False
     dbname = 'brndydb'
@@ -439,14 +443,20 @@ class MongoObj(MongoSubObj):
         if cls.mongo is not None:
             # Possibly already connected?
             return
-        cls.mongo = txmongo.MongoConnectionPool(host, port)
+
+        def _after_connect(res):
+            cls.mongo = res
+        d = defer.maybeDeferred(txmongo.MongoConnection, host, port)
+        d.addCallback(_after_connect)
+        return d
 
     @classmethod
     def disconnect(cls):
         if cls.mongo is None:
             return
 
-        # Returns a deferred which (hopefully) fires when all connections are severed
+        # Returns a deferred which (hopefully) fires when all
+        # connections are severed
         return cls.mongo.disconnect()
 
     def __eq__(self, other):
@@ -477,7 +487,8 @@ class MongoObj(MongoSubObj):
         collection = cls.getCollection()
         doc = yield collection.find_one({'_id': docid})
         if not doc:
-            raise KeyError('{} with the id {} not found'.format(cls.__name__, docid))
+            err = '{} with the id {} not found'.format(cls.__name__, docid)
+            raise KeyError(err)
 
         new_object = cls()
         new_object.setValues(doc)
@@ -591,7 +602,8 @@ class MongoSet(object):
     _result = []
     _display_timezone = None
 
-    def __init__(self, search, cls, limit=0, skip=0, sort=None, loadRefs=False, display_timezone=None):
+    def __init__(self, search, cls, limit=0, skip=0, sort=None,
+                 loadRefs=False, display_timezone=None):
         self._search = search
         self._class = cls
         self._limit = limit
@@ -630,7 +642,9 @@ class MongoSet(object):
             ftr = txmongo.filter.sort(self._sort)
         else:
             ftr = None
-        docs = yield collection.find(spec=self._search, limit=self._limit, skip=self._skip, filter=ftr)
+        docs = yield collection.find(spec=self._search,
+                                     limit=self._limit,
+                                     skip=self._skip, filter=ftr)
 
         out = []
         for i in docs:
