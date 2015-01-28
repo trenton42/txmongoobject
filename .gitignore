@@ -13,3 +13,5 @@ bin
 lib
 include
 .download_cache
+.coverage
+htmlcov/
