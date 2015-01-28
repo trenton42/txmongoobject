@@ -33,7 +33,6 @@ class mongoProperty(object):
     def __init__(self, allowNone=True, default=None, key=None):
         self.allowNone = allowNone
         self.default = default
-        self.values = {}
         if key:
             self._key = key
 
@@ -599,7 +598,7 @@ class MongoSet(object):
     _sort = None
     _data = None
     _queryRun = False
-    _result = []
+    _result = None
     _display_timezone = None
 
     def __init__(self, search, cls, limit=0, skip=0, sort=None,
@@ -611,6 +610,7 @@ class MongoSet(object):
         self._sort = sort
         self._loadRefs = loadRefs
         self._display_timezone = display_timezone
+        self._result = []
 
     def limit(self, num):
         self._limit = num
@@ -652,6 +652,8 @@ class MongoSet(object):
             if self._loadRefs:
                 yield o.loadRefs()
             out.append(o)
+        # print "SENDING"
+        # defer.returnValue(out)
         self._result = out
         defer.returnValue(self)
 
@@ -690,10 +692,6 @@ class MongoSet(object):
     def __getitem__(self, index):
         if index.__class__ is not int:
             raise TypeError
-        # if index < 0 or index >= len(self._result):
-        #     raise IndexError
-        # out = self._applyItem(self._result[index])
-        # return out
         return self._result[index]
 
     def _applyItem(self, obj):
