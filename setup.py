@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
 
 def readme():
@@ -14,7 +14,9 @@ setup(name='txmongoobject',
       author='Trenton Broughton',
       author_email='trenton@devpie.com',
       license='MIT',
-      packages=find_packages(),
+      packages=[
+          'txmongoobject',
+      ],
       install_requires=[
           'txmongo',
           'pymongo',
