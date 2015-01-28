@@ -23,7 +23,7 @@ clean-pyc:
 	find . -name '*~' -exec rm -f {} +
 
 lint:
-	flake8 kindrid tests
+	flake8 txmongoobject tests
 
 env:
 	rm -fr env
@@ -35,7 +35,7 @@ test:
 	trial tests
 
 coverage:
-	coverage run --source kindrid `which trial` tests
+	coverage run --source txmongoobject `which trial` tests
 	coverage report -m
 	coverage html
 	open htmlcov/index.html
