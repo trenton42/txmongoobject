@@ -12,6 +12,10 @@ class notLoadedError(Exception):
     pass
 
 
+class DocumentExists(Exception):
+    pass
+
+
 class metaMongoObj(type):
     def __new__(meta, classname, bases, classDict):
         classDict['_id'] = mongoidProperty()
@@ -569,6 +573,26 @@ class MongoObj(MongoSubObj):
             self.loaded = True
 
         defer.returnValue(result)
+
+    @defer.inlineCallbacks
+    def insert_unique(self, query):
+        ''' Atomically insert a document. Raises `DocumentExists` if `query`
+        matches any documents
+        '''
+        assert isinstance(query, dict)
+        collection = self.getCollection()
+        data = self.getValues()
+        if "_id" in data:
+            del data["_id"]
+        data['cdate'] = datetime.today()
+        self._prop_dirty.clear()
+        insert = {"$setOnInsert": data}
+        out = yield collection.update(query, insert, upsert=True, safe=True)
+        if "upserted" not in out or not out["upserted"]:
+            raise DocumentExists("Document already exits.")
+        self._id = out["upserted"]
+        self.loaded = True
+        defer.returnValue(out["upserted"])
 
     @defer.inlineCallbacks
     def remove(self):

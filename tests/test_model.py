@@ -274,3 +274,24 @@ class TestCollection(unittest.TestCase):
         yield p.save()
         self.assertEqual(p.testExtra, 'teststring')
         yield p.remove()
+
+    @defer.inlineCallbacks
+    def test_insert_unique(self):
+        ''' Ensure that insert_unique only inserts once for a given query '''
+        p = CollectionObject()
+        collection = p.getCollection()
+        yield collection.remove({"testString": "bob"})
+        yield collection.remove({"testString": "frank"})
+        p.testString = "bob"
+        out = yield p.insert_unique({"testString": "bob"})
+        self.assertIsInstance(out, ObjectId)
+
+        p2 = CollectionObject()
+        p2.testString = "frank"
+        out = yield p2.insert_unique({"testString": "frank"})
+        self.assertIsInstance(out, ObjectId)
+
+        f = p.insert_unique({"testString": "bob"})
+        yield self.assertFailure(f, model.DocumentExists)
+        f = p2.insert_unique({"testString": "frank"})
+        yield self.assertFailure(f, model.DocumentExists)
