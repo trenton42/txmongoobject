@@ -21,6 +21,8 @@ class CollectionObject(model.MongoObj):
     testInt = model.intProperty()
     testFloat = model.floatProperty()
     testBool = model.boolProperty()
+    testDefaultFalse = model.boolProperty(default=False)
+    testDefaultTrue = model.boolProperty(default=True)
     testDate = model.dateProperty()
     testRef = model.referenceProperty(Fragment)
     testRefList = model.listProperty(wrapper=model.referenceProperty(Fragment))
@@ -63,6 +65,8 @@ class TestCollection(unittest.TestCase):
         self.assertIdentical(col.testInt, None)
         self.assertIdentical(col.testFloat, None)
         self.assertIdentical(col.testDate, None)
+        self.assertTrue(col.testDefaultTrue, True)
+        self.assertFalse(col.testDefaultFalse, False)
 
     @defer.inlineCallbacks
     def test_reference(self):
