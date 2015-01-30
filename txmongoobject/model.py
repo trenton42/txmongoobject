@@ -526,6 +526,29 @@ class MongoObj(MongoSubObj):
         return MongoSet(search, cls, **kwargs)._runQuery()
 
     @classmethod
+    def find_and_modify(cls, query=None, update=None, **kwargs):
+        ''' Get a single document from `query` and modify it with `update` '''
+        if query is None:
+            query = {}
+        assert isinstance(query, dict)
+        if "new" not in kwargs:
+            # Default to returning updated document
+            kwargs["new"] = True
+        collection = cls.getCollection()
+        d = collection.find_and_modify(query=query, update=update, **kwargs)
+
+        def _after(res):
+            if res is None:
+                return res
+            new_object = cls()
+            new_object.setValues(res)
+            new_object.loaded = True
+            return new_object
+
+        d.addCallback(_after)
+        return d
+
+    @classmethod
     def count(cls, search):
         collection = cls.getCollection()
         d = collection.count(search)

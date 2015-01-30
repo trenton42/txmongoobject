@@ -295,3 +295,27 @@ class TestCollection(unittest.TestCase):
         yield self.assertFailure(f, model.DocumentExists)
         f = p2.insert_unique({"testString": "frank"})
         yield self.assertFailure(f, model.DocumentExists)
+
+    @defer.inlineCallbacks
+    def test_find_and_modify(self):
+        ''' Ensure that find_and_modify returns one Object, etc '''
+        p = CollectionObject()
+        yield p.getCollection().remove({"testInt": {"$ne": None}})
+        p.testInt = 1
+        yield p.save()
+        out = yield p.find_and_modify({"testInt": 2}, {"$set": {"testInt": 2}})
+        self.assertIsNone(out)
+        out = yield p.find_and_modify({"testInt": 1}, {"$set": {"testInt": 2}})
+        self.assertEqual(out.testInt, 2)
+        self.assertEqual(out._id, p._id)
+        yield p.getCollection().remove({})
+        for i in range(10):
+            p.getCollection().insert({"testInt": 1})
+        cnt = 0
+        search = {"testInt": 1}
+        update = {"$set": {"testInt": 2}}
+        nxt = yield CollectionObject.find_and_modify(search, update)
+        while nxt:
+            cnt += 1
+            nxt = yield CollectionObject.find_and_modify(search, update)
+        self.assertEqual(cnt, 10)
