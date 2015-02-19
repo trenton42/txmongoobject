@@ -20,8 +20,10 @@ class metaMongoObj(type):
     def __new__(meta, classname, bases, classDict):
         classDict['_id'] = mongoidProperty()
         classDict['cdate'] = dateProperty()
+        _unmarshal_class = classname
         if "collection" not in classDict:
             classDict['collection'] = classname
+        classDict["_unmarshal_class"] = stringProperty(default=_unmarshal_class)
 
         for k, v in classDict.iteritems():
             if not issubclass(v.__class__, mongoProperty):
@@ -483,7 +485,7 @@ class MongoObj(MongoSubObj):
 
     @classmethod
     @defer.inlineCallbacks
-    def findOne(cls, docid):
+    def findOne(cls, docid, loadRefs=False):
         if docid is not None and not isinstance(docid, ObjectId):
             # Raises exception if docid is not ObjectId-able
             docid = ObjectId(docid)
@@ -498,6 +500,8 @@ class MongoObj(MongoSubObj):
         new_object = cls()
         new_object.setValues(doc)
         new_object.loaded = True
+        if loadRefs:
+            yield new_object.loadRefs()
         defer.returnValue(new_object)
 
     @defer.inlineCallbacks
@@ -638,6 +642,16 @@ class MongoObj(MongoSubObj):
         collection = cls.getCollection()
 
         return collection.aggregate(spec, **kwargs)
+
+    @classmethod
+    def _find_class(cls, name):
+        ''' Find a class to unmarshal by name '''
+        classes = MongoObj.__subclasses__()
+        out = classes.filter(lambda k: k.__name__ == name)
+        if not out:
+            # Shrug and give up?
+            return cls
+        return out[0]
 
 
 class MongoSet(object):
