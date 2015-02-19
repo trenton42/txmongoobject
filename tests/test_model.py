@@ -92,6 +92,12 @@ class TestCollection(unittest.TestCase):
 
         self.assertEqual(newobj.testRef, frag)
 
+        lrobj = yield CollectionObject.findOne(col._id)
+        self.assertIsInstance(lrobj.testRef, ObjectId)
+
+        lrobj = yield CollectionObject.findOne(col._id, loadRefs=True)
+        self.assertIsInstance(lrobj.testRef, Fragment)
+
     @defer.inlineCallbacks
     def test_load(self):
         col = CollectionObject()
