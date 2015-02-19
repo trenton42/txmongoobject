@@ -46,6 +46,11 @@ class CountCollectionObject(model.MongoObj):
     number = model.intProperty()
 
 
+class DifferentCollectionObject(model.MongoObj):
+    collection = "other_collection"
+    data = model.intProperty(default=5)
+
+
 class TestCollection(unittest.TestCase):
 
     timeout = 15
@@ -323,3 +328,11 @@ class TestCollection(unittest.TestCase):
             cnt += 1
             nxt = yield CollectionObject.find_and_modify(search, update)
         self.assertEqual(cnt, 10)
+
+    @defer.inlineCallbacks
+    def test_specified_collection(self):
+        obj = DifferentCollectionObject()
+        obj.data = 7
+        yield obj.save()
+        collection = obj.getCollection()
+        self.assertEqual(str(collection).split('.')[-1], "other_collection")

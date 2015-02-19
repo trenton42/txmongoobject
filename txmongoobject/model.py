@@ -20,6 +20,8 @@ class metaMongoObj(type):
     def __new__(meta, classname, bases, classDict):
         classDict['_id'] = mongoidProperty()
         classDict['cdate'] = dateProperty()
+        if "collection" not in classDict:
+            classDict['collection'] = classname
 
         for k, v in classDict.iteritems():
             if not issubclass(v.__class__, mongoProperty):
@@ -476,7 +478,7 @@ class MongoObj(MongoSubObj):
     @classmethod
     def getCollection(cls):
         db = getattr(cls.mongo, cls.dbname)
-        collection = getattr(db, cls.__name__)
+        collection = getattr(db, cls.collection)
         return collection
 
     @classmethod
@@ -682,9 +684,7 @@ class MongoSet(object):
 
     @defer.inlineCallbacks
     def _runQuery(self):
-        mongo = MongoObj.mongo
-        db = getattr(mongo, self._class.dbname)
-        collection = getattr(db, self._class.__name__)
+        collection = self._class.getCollection()
         if self._sort is not None:
             ftr = txmongo.filter.sort(self._sort)
         else:
