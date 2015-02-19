@@ -8,6 +8,10 @@ from datetime import datetime
 import pytz
 
 
+def _all_subclasses(cls):
+    return cls.__subclasses__() + [g for s in cls.__subclasses__() for g in _all_subclasses(s)]
+
+
 class notLoadedError(Exception):
     pass
 
@@ -20,10 +24,10 @@ class metaMongoObj(type):
     def __new__(meta, classname, bases, classDict):
         classDict['_id'] = mongoidProperty()
         classDict['cdate'] = dateProperty()
-        _unmarshal_class = classname
         if "collection" not in classDict:
             classDict['collection'] = classname
-        classDict["_unmarshal_class"] = stringProperty(default=_unmarshal_class)
+        elif classDict["collection"] != classname:
+            classDict["_unmarshal_class"] = stringProperty(default=classname)
 
         for k, v in classDict.iteritems():
             if not issubclass(v.__class__, mongoProperty):
@@ -497,7 +501,11 @@ class MongoObj(MongoSubObj):
             err = '{} with the id {} not found'.format(cls.__name__, docid)
             raise KeyError(err)
 
-        new_object = cls()
+        if "_unmarshal_class" in doc:
+            newcls = MongoObj._find_class(doc["_unmarshal_class"])
+        else:
+            newcls = cls
+        new_object = newcls()
         new_object.setValues(doc)
         new_object.loaded = True
         if loadRefs:
@@ -646,8 +654,8 @@ class MongoObj(MongoSubObj):
     @classmethod
     def _find_class(cls, name):
         ''' Find a class to unmarshal by name '''
-        classes = MongoObj.__subclasses__()
-        out = classes.filter(lambda k: k.__name__ == name)
+        classes = _all_subclasses(MongoObj)
+        out = filter(lambda k: k.__name__ == name, classes)
         if not out:
             # Shrug and give up?
             return cls
@@ -756,7 +764,11 @@ class MongoSet(object):
         return self._result[index]
 
     def _applyItem(self, obj):
-        out = self._class()
+        if "_unmarshal_class" in obj and obj["_unmarshal_class"] != self._class.__name__:
+            cls = MongoObj._find_class(obj["_unmarshal_class"])
+        else:
+            cls = self._class
+        out = cls()
         out.display_timezone = self._display_timezone
         out.setValues(obj)
         out.loaded = True

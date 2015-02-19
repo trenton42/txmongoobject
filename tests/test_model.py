@@ -51,6 +51,10 @@ class DifferentCollectionObject(model.MongoObj):
     data = model.intProperty(default=5)
 
 
+class ChildCountObject(CountCollectionObject):
+    collection = CountCollectionObject.collection
+
+
 class TestCollection(unittest.TestCase):
 
     timeout = 15
@@ -342,3 +346,16 @@ class TestCollection(unittest.TestCase):
         yield obj.save()
         collection = obj.getCollection()
         self.assertEqual(str(collection).split('.')[-1], "other_collection")
+        collection = CountCollectionObject.getCollection()
+        yield collection.remove({"number": 99959})
+        child = ChildCountObject()
+        child.number = 99959
+        yield child.save()
+        self.assertEqual(child._unmarshal_class, 'ChildCountObject')
+
+        results = yield CountCollectionObject.find({"number": 99959})
+        self.assertEqual(len(results), 1)
+        self.assertIsInstance(results[0], ChildCountObject)
+
+        findoneres = yield CountCollectionObject.findOne(child._id)
+        self.assertIsInstance(findoneres, ChildCountObject)
