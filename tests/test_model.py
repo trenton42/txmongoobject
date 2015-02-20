@@ -55,6 +55,10 @@ class ChildCountObject(CountCollectionObject):
     collection = CountCollectionObject.collection
 
 
+class SecondChildObject(ChildCountObject):
+    pass
+
+
 class TestCollection(unittest.TestCase):
 
     timeout = 15
@@ -347,7 +351,7 @@ class TestCollection(unittest.TestCase):
         collection = obj.getCollection()
         self.assertEqual(str(collection).split('.')[-1], "other_collection")
         collection = CountCollectionObject.getCollection()
-        yield collection.remove({"number": 99959})
+        yield collection.remove({})
         child = ChildCountObject()
         child.number = 99959
         yield child.save()
@@ -356,6 +360,14 @@ class TestCollection(unittest.TestCase):
         results = yield CountCollectionObject.find({"number": 99959})
         self.assertEqual(len(results), 1)
         self.assertIsInstance(results[0], ChildCountObject)
+
+        second = SecondChildObject()
+        second.number = 99969
+        yield second.save()
+        self.assertEqual(second._unmarshal_class, 'SecondChildObject')
+        results = yield CountCollectionObject.find({"number": 99969})
+        self.assertEqual(len(results), 1)
+        self.assertIsInstance(results[0], SecondChildObject)
 
         findoneres = yield CountCollectionObject.findOne(child._id)
         self.assertIsInstance(findoneres, ChildCountObject)
