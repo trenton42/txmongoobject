@@ -25,8 +25,13 @@ class metaMongoObj(type):
         classDict['_id'] = mongoidProperty()
         classDict['cdate'] = dateProperty()
         if "collection" not in classDict:
-            classDict['collection'] = classname
-        elif classDict["collection"] != classname:
+            collection = classname
+            for i in bases:
+                if i.__name__ == "MongoObj" or not hasattr(i, "collection"):
+                    continue
+                collection = i.collection
+            classDict['collection'] = collection
+        if classDict["collection"] != classname:
             classDict["_unmarshal_class"] = stringProperty(default=classname)
 
         for k, v in classDict.iteritems():
@@ -502,7 +507,7 @@ class MongoObj(MongoSubObj):
             raise KeyError(err)
 
         if "_unmarshal_class" in doc:
-            newcls = MongoObj._find_class(doc["_unmarshal_class"])
+            newcls = cls._find_class(doc["_unmarshal_class"])
         else:
             newcls = cls
         new_object = newcls()
@@ -765,7 +770,7 @@ class MongoSet(object):
 
     def _applyItem(self, obj):
         if "_unmarshal_class" in obj and obj["_unmarshal_class"] != self._class.__name__:
-            cls = MongoObj._find_class(obj["_unmarshal_class"])
+            cls = self._class._find_class(obj["_unmarshal_class"])
         else:
             cls = self._class
         out = cls()
