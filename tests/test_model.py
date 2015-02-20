@@ -46,6 +46,19 @@ class CountCollectionObject(model.MongoObj):
     number = model.intProperty()
 
 
+class DifferentCollectionObject(model.MongoObj):
+    collection = "other_collection"
+    data = model.intProperty(default=5)
+
+
+class ChildCountObject(CountCollectionObject):
+    collection = CountCollectionObject.collection
+
+
+class SecondChildObject(ChildCountObject):
+    pass
+
+
 class TestCollection(unittest.TestCase):
 
     timeout = 15
@@ -86,6 +99,12 @@ class TestCollection(unittest.TestCase):
         yield newobj.load(col._id)
 
         self.assertEqual(newobj.testRef, frag)
+
+        lrobj = yield CollectionObject.findOne(col._id)
+        self.assertIsInstance(lrobj.testRef, ObjectId)
+
+        lrobj = yield CollectionObject.findOne(col._id, loadRefs=True)
+        self.assertIsInstance(lrobj.testRef, Fragment)
 
     @defer.inlineCallbacks
     def test_load(self):
@@ -323,3 +342,32 @@ class TestCollection(unittest.TestCase):
             cnt += 1
             nxt = yield CollectionObject.find_and_modify(search, update)
         self.assertEqual(cnt, 10)
+
+    @defer.inlineCallbacks
+    def test_specified_collection(self):
+        obj = DifferentCollectionObject()
+        obj.data = 7
+        yield obj.save()
+        collection = obj.getCollection()
+        self.assertEqual(str(collection).split('.')[-1], "other_collection")
+        collection = CountCollectionObject.getCollection()
+        yield collection.remove({})
+        child = ChildCountObject()
+        child.number = 99959
+        yield child.save()
+        self.assertEqual(child._unmarshal_class, 'ChildCountObject')
+
+        results = yield CountCollectionObject.find({"number": 99959})
+        self.assertEqual(len(results), 1)
+        self.assertIsInstance(results[0], ChildCountObject)
+
+        second = SecondChildObject()
+        second.number = 99969
+        yield second.save()
+        self.assertEqual(second._unmarshal_class, 'SecondChildObject')
+        results = yield CountCollectionObject.find({"number": 99969})
+        self.assertEqual(len(results), 1)
+        self.assertIsInstance(results[0], SecondChildObject)
+
+        findoneres = yield CountCollectionObject.findOne(child._id)
+        self.assertIsInstance(findoneres, ChildCountObject)

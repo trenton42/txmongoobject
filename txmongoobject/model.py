@@ -8,6 +8,10 @@ from datetime import datetime
 import pytz
 
 
+def _all_subclasses(cls):
+    return cls.__subclasses__() + [g for s in cls.__subclasses__() for g in _all_subclasses(s)]
+
+
 class notLoadedError(Exception):
     pass
 
@@ -20,6 +24,15 @@ class metaMongoObj(type):
     def __new__(meta, classname, bases, classDict):
         classDict['_id'] = mongoidProperty()
         classDict['cdate'] = dateProperty()
+        if "collection" not in classDict:
+            collection = classname
+            for i in bases:
+                if i.__name__ == "MongoObj" or not hasattr(i, "collection"):
+                    continue
+                collection = i.collection
+            classDict['collection'] = collection
+        if classDict["collection"] != classname:
+            classDict["_unmarshal_class"] = stringProperty(default=classname)
 
         for k, v in classDict.iteritems():
             if not issubclass(v.__class__, mongoProperty):
@@ -476,12 +489,12 @@ class MongoObj(MongoSubObj):
     @classmethod
     def getCollection(cls):
         db = getattr(cls.mongo, cls.dbname)
-        collection = getattr(db, cls.__name__)
+        collection = getattr(db, cls.collection)
         return collection
 
     @classmethod
     @defer.inlineCallbacks
-    def findOne(cls, docid):
+    def findOne(cls, docid, loadRefs=False):
         if docid is not None and not isinstance(docid, ObjectId):
             # Raises exception if docid is not ObjectId-able
             docid = ObjectId(docid)
@@ -493,9 +506,15 @@ class MongoObj(MongoSubObj):
             err = '{} with the id {} not found'.format(cls.__name__, docid)
             raise KeyError(err)
 
-        new_object = cls()
+        if "_unmarshal_class" in doc:
+            newcls = cls._find_class(doc["_unmarshal_class"])
+        else:
+            newcls = cls
+        new_object = newcls()
         new_object.setValues(doc)
         new_object.loaded = True
+        if loadRefs:
+            yield new_object.loadRefs()
         defer.returnValue(new_object)
 
     @defer.inlineCallbacks
@@ -637,6 +656,16 @@ class MongoObj(MongoSubObj):
 
         return collection.aggregate(spec, **kwargs)
 
+    @classmethod
+    def _find_class(cls, name):
+        ''' Find a class to unmarshal by name '''
+        classes = _all_subclasses(MongoObj)
+        out = filter(lambda k: k.__name__ == name, classes)
+        if not out:
+            # Shrug and give up?
+            return cls
+        return out[0]
+
 
 class MongoSet(object):
 
@@ -682,9 +711,7 @@ class MongoSet(object):
 
     @defer.inlineCallbacks
     def _runQuery(self):
-        mongo = MongoObj.mongo
-        db = getattr(mongo, self._class.dbname)
-        collection = getattr(db, self._class.__name__)
+        collection = self._class.getCollection()
         if self._sort is not None:
             ftr = txmongo.filter.sort(self._sort)
         else:
@@ -742,7 +769,11 @@ class MongoSet(object):
         return self._result[index]
 
     def _applyItem(self, obj):
-        out = self._class()
+        if "_unmarshal_class" in obj and obj["_unmarshal_class"] != self._class.__name__:
+            cls = self._class._find_class(obj["_unmarshal_class"])
+        else:
+            cls = self._class
+        out = cls()
         out.display_timezone = self._display_timezone
         out.setValues(obj)
         out.loaded = True
