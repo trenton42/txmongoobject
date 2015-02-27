@@ -308,6 +308,9 @@ class TestCollection(unittest.TestCase):
         p.testString = "bob"
         out = yield p.insert_unique({"testString": "bob"})
         self.assertIsInstance(out, ObjectId)
+        self.assertIsInstance(p._id, ObjectId)
+        self.assertEqual(p._id, out)
+        self.assertIsInstance(p.cdate, datetime)
 
         p2 = CollectionObject()
         p2.testString = "frank"
