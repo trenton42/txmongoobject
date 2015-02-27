@@ -623,10 +623,10 @@ class MongoObj(MongoSubObj):
         '''
         assert isinstance(query, dict)
         collection = self.getCollection()
+        self.cdate = datetime.today()
         data = self.getValues()
         if "_id" in data:
             del data["_id"]
-        data['cdate'] = datetime.today()
         self._prop_dirty.clear()
         insert = {"$setOnInsert": data}
         out = yield collection.update(query, insert, upsert=True, safe=True)
