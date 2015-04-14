@@ -345,6 +345,28 @@ class TestCollection(unittest.TestCase):
             cnt += 1
             nxt = yield CollectionObject.find_and_modify(search, update)
         self.assertEqual(cnt, 10)
+        yield p.getCollection().remove({"testInt": {"$ne": None}})
+        chars = ["e", "d", "c", "b", "a"]
+
+        for k, v in enumerate(chars):
+            tmp = CollectionObject()
+            tmp.testInt = k
+            tmp.testString = v
+            yield tmp.save()
+        search = {
+            "testInt": {
+                "$ne": None
+            }
+        }
+        update = {
+            "$set": {
+                "testFloat": 7
+            }
+        }
+        nxt = yield CollectionObject.find_and_modify(query=search, update=update, sort={"testInt": 1})
+        self.assertEqual(nxt.testInt, 0, "Sort Ascending")
+        nxt = yield CollectionObject.find_and_modify(query=search, update=update, sort={"testInt": -1})
+        self.assertEqual(nxt.testInt, 4, "Sort Descending")
 
     @defer.inlineCallbacks
     def test_specified_collection(self):

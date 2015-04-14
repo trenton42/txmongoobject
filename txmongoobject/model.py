@@ -1,4 +1,5 @@
 import txmongo
+from collections import OrderedDict
 try:
     from txmongo._pymongo.objectid import ObjectId, InvalidId
 except ImportError:
@@ -545,7 +546,7 @@ class MongoObj(MongoSubObj):
         return MongoSet(search, cls, **kwargs)._runQuery()
 
     @classmethod
-    def find_and_modify(cls, query=None, update=None, **kwargs):
+    def find_and_modify(cls, query=None, update=None, sort=None, **kwargs):
         ''' Get a single document from `query` and modify it with `update` '''
         if query is None:
             query = {}
@@ -553,6 +554,12 @@ class MongoObj(MongoSubObj):
         if "new" not in kwargs:
             # Default to returning updated document
             kwargs["new"] = True
+        if sort:
+            if isinstance(sort, tuple):
+                if not isinstance(sort[0], tuple):
+                    sort = (sort, )
+                sort = OrderedDict(sort)
+            kwargs["sort"] = sort
         collection = cls.getCollection()
         d = collection.find_and_modify(query=query, update=update, **kwargs)
 
