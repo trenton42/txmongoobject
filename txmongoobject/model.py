@@ -1,4 +1,5 @@
 import txmongo
+from txmongo import connection
 from collections import OrderedDict
 try:
     from txmongo._pymongo.objectid import ObjectId, InvalidId
@@ -456,14 +457,28 @@ class MongoObj(MongoSubObj):
         super(MongoObj, self).__init__()
 
     @classmethod
-    def connect(cls, host, port):
+    def connect(cls, host, port, username=None, password=None, database=None):
         if cls.mongo is not None:
             # Possibly already connected?
             return
 
+        if database:
+            cls.dbname = database
+
         def _after_connect(res):
             cls.mongo = res
-        d = defer.maybeDeferred(txmongo.MongoConnection, host, port)
+        details = {
+            "host": host,
+            "port": port,
+            "username": username,
+            "password": password,
+            "database": cls.dbname
+        }
+        if username and password:
+            uri = "mongodb://{username}:{password}@{host}:{port}/{database}"
+        else:
+            uri = "mongodb://{host}:{port}/{database}"
+        d = defer.maybeDeferred(connection.ConnectionPool, uri=uri.format(**details))
         d.addCallback(_after_connect)
         return d
 
