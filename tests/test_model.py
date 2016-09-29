@@ -396,3 +396,23 @@ class TestCollection(unittest.TestCase):
 
         findoneres = yield CountCollectionObject.findOne(child._id)
         self.assertIsInstance(findoneres, ChildCountObject)
+
+    @defer.inlineCallbacks
+    def test_cursor(self):
+        for i in range(10000):
+            p = CollectionObject()
+            p.testInt = i
+            p.testString = "test_cursor"
+            yield p.save()
+
+        count = yield CollectionObject.count({"testString": "test_cursor"})
+
+        res = yield CollectionObject.find({"testString": "test_cursor"}, use_cursor=True, sort=[["testInt", 1]])
+        ccount = 0
+        more = res._cursor
+        while more:
+            ccount += len(res)
+            more = yield res.hasMore()
+        yield CollectionObject.getCollection().remove({"testString": "test_cursor"})
+
+        self.assertEqual(count, ccount)
