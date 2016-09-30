@@ -698,9 +698,10 @@ class MongoSet(object):
     _queryRun = False
     _result = None
     _display_timezone = None
+    _use_cursor = False
 
     def __init__(self, search, cls, limit=0, skip=0, sort=None,
-                 loadRefs=False, display_timezone=None):
+                 loadRefs=False, display_timezone=None, use_cursor=False):
         self._search = search
         self._class = cls
         self._limit = limit
@@ -709,6 +710,8 @@ class MongoSet(object):
         self._loadRefs = loadRefs
         self._display_timezone = display_timezone
         self._result = []
+        self._use_cursor = use_cursor
+        self._cursor = None
 
     def limit(self, num):
         self._limit = num
@@ -731,16 +734,34 @@ class MongoSet(object):
         self._result = objs
         return self
 
+    def hasMore(self):
+        if self._cursor:
+            return self._runQuery()
+        else:
+            return False
+
     @defer.inlineCallbacks
     def _runQuery(self):
-        collection = self._class.getCollection()
-        if self._sort is not None:
-            ftr = txmongo.filter.sort(self._sort)
+        if self._cursor:
+            docs, self._cursor = yield self._cursor
         else:
-            ftr = None
-        docs = yield collection.find(spec=self._search,
-                                     limit=self._limit,
-                                     skip=self._skip, filter=ftr)
+            collection = self._class.getCollection()
+            if self._sort is not None:
+                ftr = txmongo.filter.sort(self._sort)
+            else:
+                ftr = None
+            if self._use_cursor:
+                docs, self._cursor = yield collection.find(spec=self._search,
+                                                           limit=self._limit,
+                                                           skip=self._skip,
+                                                           filter=ftr,
+                                                           cursor=self._use_cursor)
+            else:
+                docs = yield collection.find(spec=self._search,
+                                             limit=self._limit,
+                                             skip=self._skip,
+                                             filter=ftr,
+                                             cursor=self._use_cursor)
 
         out = []
         for i in docs:
@@ -757,30 +778,30 @@ class MongoSet(object):
         # if self._loadRefs:
         #     for i in docs:
         #         yield i.loadRefs()
-            # schema = self._class().schema
-            # for k, v in schema.iteritems():
-            #     if not isinstance(v, referenceProperty):
-            #         continue
-            #     ids = set()
-            #     for i in docs:
-            #         val = i.get(k, None)
-            #         if val is None:
-            #             continue
-            #         ids.add(val)
-            #     if not len(ids):
-            #         continue
-            #     for j in chunks(list(ids), 100):
-            #         tmp = yield v._refCls.find({'_id': {'$in': j}})
-            #         _tmp = {}
-            #         for i in tmp:
-            #             _tmp[i._id] = i
-            #         del tmp
-            #         for i in docs:
-            #             key = i.get(k, None)
-            #             if key in _tmp:
-            #                 i[k] = _tmp[key]
-            #             else:
-            #                 i[k] = None
+        #     schema = self._class().schema
+        #     for k, v in schema.iteritems():
+        #         if not isinstance(v, referenceProperty):
+        #             continue
+        #         ids = set()
+        #         for i in docs:
+        #             val = i.get(k, None)
+        #             if val is None:
+        #                 continue
+        #             ids.add(val)
+        #         if not len(ids):
+        #             continue
+        #         for j in chunks(list(ids), 100):
+        #             tmp = yield v._refCls.find({'_id': {'$in': j}})
+        #             _tmp = {}
+        #             for i in tmp:
+        #                 _tmp[i._id] = i
+        #             del tmp
+        #             for i in docs:
+        #                 key = i.get(k, None)
+        #                 if key in _tmp:
+        #                     i[k] = _tmp[key]
+        #                 else:
+        #                     i[k] = None
 
         # self._result = docs
         # defer.returnValue(self)
