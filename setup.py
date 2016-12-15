@@ -20,6 +20,7 @@ setup(name='txmongoobject',
       install_requires=[
           'txmongo',
           'pymongo',
-          'pytz'
+          'pytz',
+          "iso8601"
       ],
       zip_safe=False)
