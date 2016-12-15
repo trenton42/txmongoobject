@@ -6,7 +6,7 @@ def readme():
         return f.read()
 
 setup(name='txmongoobject',
-      version='0.2.10',
+      version='0.2.11',
       description='Object models in Mongo',
       long_description=readme(),
       keywords='mongo twisted',
@@ -20,6 +20,7 @@ setup(name='txmongoobject',
       install_requires=[
           'txmongo',
           'pymongo',
-          'pytz'
+          'pytz',
+          "iso8601"
       ],
       zip_safe=False)

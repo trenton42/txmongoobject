@@ -1,4 +1,7 @@
 import txmongo
+import pytz
+import json
+import iso8601
 from txmongo import connection
 from collections import OrderedDict
 try:
@@ -7,11 +10,21 @@ except ImportError:
     from bson.objectid import ObjectId, InvalidId
 from twisted.internet import defer
 from datetime import datetime
-import pytz
 
 
 def _all_subclasses(cls):
     return cls.__subclasses__() + [g for s in cls.__subclasses__() for g in _all_subclasses(s)]
+
+
+class MongoEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, ObjectId):
+            return {"$oid": str(obj)}
+        if isinstance(obj, list):
+            return [self.default(i) for i in obj]
+        if isinstance(obj, datetime):
+            return {"$date": obj.isoformat()}
+        return obj
 
 
 class notLoadedError(Exception):
@@ -426,6 +439,32 @@ class MongoSubObj(object):
         passed through this function, and should be returned '''
         return data
 
+    def as_json(self):
+        return json.dumps(self.getValues(), cls=MongoEncoder)
+
+    @classmethod
+    def from_json(cls, data):
+        obj = cls()
+        out = json.loads(data, object_hook=cls._object_hook)
+        obj.setValues(out)
+        return obj
+
+    @staticmethod
+    def _object_hook(obj):
+        if not isinstance(obj, dict):
+            return obj
+        for k, v in obj.items():
+            if isinstance(v, dict):
+                if "$oid" in v:
+                    obj[k] = ObjectId(v["$oid"])
+                elif "$date" in v:
+                    obj[k] = iso8601.parse_date(v["$date"])
+                else:
+                    obj[k] = MongoSubObj._object_hook(v)
+            elif isinstance(v, list):
+                obj[k] = [MongoSubObj._object_hook(i) for i in v]
+        return obj
+
 
 class objectProperty(mongoProperty):
     ''' An embedded object property '''
@@ -828,4 +867,4 @@ def chunks(l, n):
     From StackOverflow: http://stackoverflow.com/a/312464/999844
     """
     for i in xrange(0, len(l), n):
-        yield l[i:i+n]
+        yield l[i:i + n]
