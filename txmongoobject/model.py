@@ -526,9 +526,14 @@ class MongoObj(MongoSubObj):
         if cls.mongo is None:
             return
 
+        def _after_disconnect(x):
+            cls.mongo = None 
+
         # Returns a deferred which (hopefully) fires when all
         # connections are severed
-        return cls.mongo.disconnect()
+        closer = cls.mongo.disconnect()
+        closer.addBoth(_after_disconnect)
+        return closer
 
     def __eq__(self, other):
         ''' Comparison between this and another object. Also returns true if
