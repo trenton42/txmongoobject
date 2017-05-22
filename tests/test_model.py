@@ -65,11 +65,12 @@ class TestCollection(unittest.TestCase):
 
     @defer.inlineCallbacks
     def setUp(self):
-        model.MongoObj.mongo = yield model.txmongo.MongoConnection('127.0.0.1', 27017)
+        # model.MongoObj.mongo = yield model.txmongo.MongoConnection('127.0.0.1', 27017)
+        yield model.MongoObj.connect('127.0.0.1', 27017)
 
     @defer.inlineCallbacks
     def tearDown(self):
-        yield model.MongoObj.mongo.disconnect()
+        yield model.MongoObj.disconnect()
 
     def test_default(self):
         col = CollectionObject()
