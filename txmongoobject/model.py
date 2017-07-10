@@ -85,7 +85,9 @@ class mongoProperty(object):
 
     def __get__(self, instance, owner):
         if self._name not in instance._prop_data:
-            return self.default
+            val = self.get(self.default)
+            instance._prop_data[self._name] = val
+            return val
         return self.get(instance._prop_data[self._name])
 
 
@@ -118,7 +120,7 @@ class stringProperty(mongoProperty):
         return value
 
     def get(self, value):
-        if value is not None:
+        if value is not None and not isinstance(value, unicode):
             value = unicode(value, 'utf-8')
         return value
 
@@ -272,6 +274,11 @@ class dictProperty(mongoProperty):
 
         if not self.allowNone and value is None:
             value = {}
+        return value
+
+    def get(self, value):
+        if not self.allowNone and value is None:
+            return {}
         return value
 
 

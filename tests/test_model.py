@@ -27,6 +27,8 @@ class CollectionObject(model.MongoObj):
     testRef = model.referenceProperty(Fragment)
     testRefList = model.listProperty(wrapper=model.referenceProperty(Fragment))
     testExtra = model.stringProperty()
+    testDict = model.dictProperty(allowNone=False)
+    testNoneDict = model.dictProperty(allowNone=True)
 
     def create(self, data):
         data['testExtra'] = 'teststring'
@@ -417,3 +419,11 @@ class TestCollection(unittest.TestCase):
         yield CollectionObject.getCollection().remove({"testString": "test_cursor"})
 
         self.assertEqual(count, ccount)
+
+    def test_dictProperty(self):
+        a = CollectionObject()
+        self.assertEqual(a.testDict, {})
+        a.testDict["Test"] = True
+
+        b = CollectionObject()
+        self.assertEqual(b.testDict, {})
