@@ -503,7 +503,7 @@ class MongoObj(MongoSubObj):
         super(MongoObj, self).__init__()
 
     @classmethod
-    def connect(cls, host, port, username=None, password=None, database=None):
+    def connect(cls, host, port, username=None, password=None, database=None, authdatabase=None):
         if cls.mongo is not None:
             # Possibly already connected?
             return
@@ -518,10 +518,11 @@ class MongoObj(MongoSubObj):
             "port": port,
             "username": username,
             "password": password,
-            "database": cls.dbname
+            "database": cls.dbname,
+            "authdatabase": authdatabase or database
         }
         if username and password:
-            uri = "mongodb://{username}:{password}@{host}:{port}/{database}"
+            uri = "mongodb://{username}:{password}@{host}:{port}/{database}?authSource={authdatabase}"
         else:
             uri = "mongodb://{host}:{port}/{database}"
         d = defer.maybeDeferred(connection.ConnectionPool, uri=uri.format(**details))
@@ -534,7 +535,7 @@ class MongoObj(MongoSubObj):
             return
 
         def _after_disconnect(x):
-            cls.mongo = None 
+            cls.mongo = None
 
         # Returns a deferred which (hopefully) fires when all
         # connections are severed
